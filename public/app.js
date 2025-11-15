@@ -1,5 +1,18 @@
-// 游戏状态
+// ============ 配置 ============
+
+const CONFIG = {
+    WS_URL: `ws://${window.location.hostname}:${window.location.port || 3000}`,
+    API_URL: `/api`,
+    PING_INTERVAL: 10000, // 10秒
+    STATS_UPDATE_INTERVAL: 5000 // 5秒
+};
+
+// ============ 游戏状态 ============
+
 const gameState = {
+    sessionId: null,
+    username: null,
+    country: null,
     isSpinning: false,
     spinCount: 0,
     sessionSpins: 0,
@@ -13,10 +26,13 @@ const gameState = {
     soundMode: false,
     currentTheme: 'light',
     currentRemix: 'none',
-    acceleration: 0
+    acceleration: 0,
+    ws: null,
+    connected: false
 };
 
-// DOM 元素
+// ============ DOM 元素 ============
+
 const elements = {
     cat: document.getElementById('cat'),
     catWrapper: document.getElementById('catWrapper'),
@@ -37,40 +53,252 @@ const elements = {
     particles: document.getElementById('particles')
 };
 
-// 初始化
+// ============ 初始化 ============
+
 function init() {
+    // 生成或获取 session ID
+    gameState.sessionId = getOrCreateSessionId();
+
+    // 检测国家
+    detectCountry();
+
+    // 加载游戏数据
     loadGameData();
+
+    // 设置事件监听器
     setupEventListeners();
-    updateStats();
+
+    // 连接 WebSocket
+    connectWebSocket();
+
+    // 启动动画循环
     startAnimationLoop();
-    simulateOnlineUsers();
+
+    // 更新统计
+    updateStatsFromServer();
+
     addTerminalLine('系统初始化完成 ✓');
-    addTerminalLine('猫猫已准备就绪 🐱');
+    addTerminalLine(`Session ID: ${gameState.sessionId.substring(0, 8)}...`);
+    addTerminalLine('正在连接服务器...');
 }
 
-// 加载游戏数据
+// ============ Session 管理 ============
+
+function getOrCreateSessionId() {
+    let sessionId = localStorage.getItem('spinningCatSessionId');
+    if (!sessionId) {
+        sessionId = generateUUID();
+        localStorage.setItem('spinningCatSessionId', sessionId);
+    }
+    return sessionId;
+}
+
+function generateUUID() {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+        const r = Math.random() * 16 | 0;
+        const v = c === 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+    });
+}
+
+// ============ WebSocket 连接 ============
+
+function connectWebSocket() {
+    try {
+        gameState.ws = new WebSocket(CONFIG.WS_URL);
+
+        gameState.ws.onopen = () => {
+            console.log('WebSocket 连接成功');
+            gameState.connected = true;
+            addTerminalLine('✓ 服务器连接成功');
+
+            // 发送初始化消息
+            sendWSMessage({
+                type: 'init',
+                sessionId: gameState.sessionId,
+                username: gameState.username,
+                country: gameState.country
+            });
+
+            // 开始心跳
+            startHeartbeat();
+        };
+
+        gameState.ws.onmessage = (event) => {
+            try {
+                const data = JSON.parse(event.data);
+                handleWSMessage(data);
+            } catch (error) {
+                console.error('处理 WebSocket 消息失败:', error);
+            }
+        };
+
+        gameState.ws.onclose = () => {
+            console.log('WebSocket 连接关闭');
+            gameState.connected = false;
+            addTerminalLine('⚠ 服务器连接断开');
+
+            // 5秒后重连
+            setTimeout(() => {
+                addTerminalLine('尝试重新连接...');
+                connectWebSocket();
+            }, 5000);
+        };
+
+        gameState.ws.onerror = (error) => {
+            console.error('WebSocket 错误:', error);
+            addTerminalLine('✗ 连接错误');
+        };
+    } catch (error) {
+        console.error('创建 WebSocket 连接失败:', error);
+        addTerminalLine('✗ 无法连接到服务器');
+    }
+}
+
+function sendWSMessage(data) {
+    if (gameState.ws && gameState.ws.readyState === WebSocket.OPEN) {
+        gameState.ws.send(JSON.stringify(data));
+    }
+}
+
+function handleWSMessage(data) {
+    switch (data.type) {
+        case 'init_success':
+            addTerminalLine('✓ 初始化成功');
+            break;
+
+        case 'pong':
+            // 心跳响应
+            break;
+
+        case 'spin_event':
+            // 其他用户旋转事件
+            if (Math.random() < 0.1) { // 10% 概率显示
+                addTerminalLine(`🌍 ${data.username} 旋转速度: ${Math.round(data.speed)} RPM`);
+            }
+            break;
+
+        case 'stats_update':
+            updateGlobalStats(data.stats);
+            break;
+
+        case 'online_count':
+            elements.userCount.textContent = `${data.count} 人在线 (${data.countries} 个国家)`;
+            break;
+
+        case 'chat_message':
+            // 聊天消息（可以扩展聊天UI）
+            addTerminalLine(`💬 ${data.username}: ${data.message}`);
+            break;
+
+        case 'leaderboard_update':
+            updateLeaderboard(data.leaderboardType, data.data);
+            break;
+
+        case 'events_update':
+            updateEvents(data.events);
+            break;
+
+        default:
+            console.log('未知消息类型:', data.type);
+    }
+}
+
+function startHeartbeat() {
+    setInterval(() => {
+        sendWSMessage({
+            type: 'ping',
+            username: gameState.username,
+            country: gameState.country
+        });
+    }, CONFIG.PING_INTERVAL);
+}
+
+// ============ API 调用 ============
+
+async function apiCall(endpoint, method = 'GET', body = null) {
+    try {
+        const options = {
+            method,
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        };
+
+        if (body) {
+            options.body = JSON.stringify(body);
+        }
+
+        const response = await fetch(`${CONFIG.API_URL}${endpoint}`, options);
+        return await response.json();
+    } catch (error) {
+        console.error('API 调用失败:', error);
+        return null;
+    }
+}
+
+async function recordSpinToServer(speed, duration) {
+    const data = await apiCall('/spin', 'POST', {
+        sessionId: gameState.sessionId,
+        speed,
+        duration,
+        username: gameState.username,
+        country: gameState.country
+    });
+
+    if (data && data.stats) {
+        gameState.totalSpins = data.stats.total_spins;
+        gameState.maxSpeed = data.stats.max_speed;
+        updateStats();
+    }
+
+    // 通过 WebSocket 广播
+    sendWSMessage({
+        type: 'spin',
+        speed,
+        duration,
+        username: gameState.username,
+        country: gameState.country
+    });
+}
+
+async function updateStatsFromServer() {
+    const data = await apiCall(`/stats/user/${gameState.sessionId}`);
+    if (data) {
+        gameState.totalSpins = data.total_spins || 0;
+        gameState.maxSpeed = data.max_speed || 0;
+        updateStats();
+    }
+
+    // 定期更新
+    setInterval(async () => {
+        const globalData = await apiCall('/stats/global');
+        if (globalData) {
+            updateGlobalStats(globalData);
+        }
+    }, CONFIG.STATS_UPDATE_INTERVAL);
+}
+
+// ============ 游戏逻辑 ============
+
 function loadGameData() {
     const savedData = localStorage.getItem('spinningCatData');
     if (savedData) {
         const data = JSON.parse(savedData);
-        gameState.totalSpins = data.totalSpins || 0;
-        gameState.maxSpeed = data.maxSpeed || 0;
+        gameState.username = data.username;
         gameState.currentTheme = data.theme || 'light';
         applyTheme(gameState.currentTheme);
     }
 }
 
-// 保存游戏数据
 function saveGameData() {
     const data = {
-        totalSpins: gameState.totalSpins,
-        maxSpeed: gameState.maxSpeed,
+        username: gameState.username,
         theme: gameState.currentTheme
     };
     localStorage.setItem('spinningCatData', JSON.stringify(data));
 }
 
-// 设置事件监听器
 function setupEventListeners() {
     // 旋转按钮
     elements.spinButton.addEventListener('mousedown', startSpinning);
@@ -128,54 +356,45 @@ function setupEventListeners() {
     elements.remixSelect.addEventListener('change', (e) => {
         gameState.currentRemix = e.target.value;
         addTerminalLine(`🎵 切换到: ${e.target.options[e.target.selectedIndex].text}`);
-        playRemix(gameState.currentRemix);
-    });
-
-    // 语言选择
-    elements.langSelect.addEventListener('change', (e) => {
-        addTerminalLine(`🌍 语言已切换: ${e.target.options[e.target.selectedIndex].text}`);
     });
 }
 
-// 开始旋转
 function startSpinning() {
     if (gameState.isSpinning) return;
 
     gameState.isSpinning = true;
     gameState.lastTime = Date.now();
+    gameState.spinStartTime = Date.now();
     elements.spinButton.classList.add('active');
 
     addTerminalLine('开始旋转... 🔄');
-
-    if (gameState.soundMode) {
-        playSound('spin');
-    }
 }
 
-// 停止旋转
 function stopSpinning() {
     if (!gameState.isSpinning) return;
 
     gameState.isSpinning = false;
     elements.spinButton.classList.remove('active');
 
-    // 增加旋转次数
-    if (gameState.currentSpeed > 10) {
+    const duration = (Date.now() - gameState.spinStartTime) / 1000;
+
+    // 记录旋转
+    if (gameState.currentSpeed > 10 && duration > 0.5) {
         gameState.sessionSpins++;
-        gameState.totalSpins++;
         updateStats();
-        saveGameData();
 
-        addTerminalLine(`完成旋转 #${gameState.totalSpins} - 速度: ${Math.round(gameState.currentSpeed)} RPM`);
+        // 发送到服务器
+        recordSpinToServer(gameState.currentSpeed, duration);
 
-        if (gameState.totalSpins % 10 === 0) {
-            addTerminalLine(`🎊 里程碑达成: ${gameState.totalSpins} 次旋转！`);
+        addTerminalLine(`完成旋转 - 速度: ${Math.round(gameState.currentSpeed)} RPM, 时长: ${duration.toFixed(1)}s`);
+
+        if (gameState.sessionSpins % 10 === 0) {
+            addTerminalLine(`🎊 里程碑: ${gameState.sessionSpins} 次旋转！`);
             createCelebrationParticles();
         }
     }
 }
 
-// 动画循环
 function startAnimationLoop() {
     function animate() {
         const now = Date.now();
@@ -183,18 +402,15 @@ function startAnimationLoop() {
         gameState.lastTime = now;
 
         if (gameState.isSpinning) {
-            // 加速
             const baseAcceleration = gameState.turboMode ? 800 : 400;
             gameState.acceleration = baseAcceleration;
             gameState.currentSpeed += gameState.acceleration * deltaTime;
 
-            // 最大速度限制
             const maxSpeed = gameState.turboMode ? 1000 : 500;
             if (gameState.currentSpeed > maxSpeed) {
                 gameState.currentSpeed = maxSpeed;
             }
         } else {
-            // 减速
             const deceleration = 200;
             gameState.currentSpeed -= deceleration * deltaTime;
             if (gameState.currentSpeed < 0) {
@@ -202,25 +418,16 @@ function startAnimationLoop() {
             }
         }
 
-        // 更新旋转
         if (gameState.currentSpeed > 0) {
-            const rotationSpeed = gameState.currentSpeed * 6; // 转换为度/秒
+            const rotationSpeed = gameState.currentSpeed * 6;
             gameState.rotation += rotationSpeed * deltaTime;
             gameState.rotation %= 360;
 
             elements.cat.style.transform = `rotate(${gameState.rotation}deg)`;
         }
 
-        // 更新最高速度
-        if (gameState.currentSpeed > gameState.maxSpeed) {
-            gameState.maxSpeed = gameState.currentSpeed;
-            saveGameData();
-        }
-
-        // 更新显示
         elements.currentSpeed.textContent = Math.round(gameState.currentSpeed);
 
-        // 狂欢模式粒子效果
         if (gameState.partyMode && gameState.isSpinning && Math.random() < 0.1) {
             createParticle();
         }
@@ -231,12 +438,10 @@ function startAnimationLoop() {
     animate();
 }
 
-// 应用主题
 function applyTheme(theme) {
     gameState.currentTheme = theme;
     document.body.setAttribute('data-theme', theme);
 
-    // 更新主题切换按钮图标
     const icons = { light: '☀️', dark: '🌙', rainbow: '🌈' };
     elements.themeToggle.textContent = icons[theme] || '🌙';
 
@@ -244,30 +449,43 @@ function applyTheme(theme) {
     saveGameData();
 }
 
-// 更新统计信息
 function updateStats() {
     elements.sessionSpins.textContent = gameState.sessionSpins;
     elements.totalSpins.textContent = gameState.totalSpins;
     elements.maxSpeed.textContent = Math.round(gameState.maxSpeed);
 }
 
-// 添加终端日志
+function updateGlobalStats(stats) {
+    if (stats.today) {
+        // 可以更新今日统计显示
+    }
+}
+
+function updateLeaderboard(type, data) {
+    // 更新排行榜显示（可以扩展UI）
+    console.log('Leaderboard update:', type, data);
+}
+
+function updateEvents(events) {
+    // 更新事件显示（可以扩展UI）
+    console.log('Events update:', events);
+}
+
+// ============ UI 辅助函数 ============
+
 function addTerminalLine(text) {
     const line = document.createElement('div');
     line.className = 'terminal-line';
     line.textContent = text;
     elements.terminal.appendChild(line);
 
-    // 保持最多显示 10 行
     while (elements.terminal.children.length > 10) {
         elements.terminal.removeChild(elements.terminal.firstChild);
     }
 
-    // 滚动到底部
     elements.terminal.scrollTop = elements.terminal.scrollHeight;
 }
 
-// 创建粒子
 function createParticle() {
     const particle = document.createElement('div');
     particle.className = 'particle';
@@ -280,7 +498,6 @@ function createParticle() {
 
     elements.particles.appendChild(particle);
 
-    // 动画结束后移除
     setTimeout(() => {
         if (particle.parentNode) {
             particle.parentNode.removeChild(particle);
@@ -288,48 +505,35 @@ function createParticle() {
     }, 4000);
 }
 
-// 狂欢模式粒子效果
 function createPartyParticles() {
     for (let i = 0; i < 20; i++) {
         setTimeout(() => createParticle(), i * 100);
     }
 }
 
-// 庆祝粒子效果
 function createCelebrationParticles() {
     for (let i = 0; i < 50; i++) {
         setTimeout(() => createParticle(), i * 50);
     }
 }
 
-// 播放音效（模拟）
-function playSound(soundType) {
-    // 这里可以添加实际的音频播放代码
-    console.log(`Playing sound: ${soundType}`);
-}
+// ============ 国家检测 ============
 
-// 播放混音（模拟）
-function playRemix(remix) {
-    // 这里可以添加实际的音乐播放代码
-    console.log(`Playing remix: ${remix}`);
-}
-
-// 模拟在线用户数
-function simulateOnlineUsers() {
-    function updateUserCount() {
-        const baseUsers = 1337;
-        const variance = Math.floor(Math.random() * 200 - 100);
-        const userCount = baseUsers + variance;
-        elements.userCount.textContent = `${userCount} 人在线`;
+async function detectCountry() {
+    try {
+        const response = await fetch('https://ipapi.co/json/');
+        const data = await response.json();
+        gameState.country = data.country_code || 'Unknown';
+        addTerminalLine(`📍 位置: ${data.country_name || 'Unknown'}`);
+    } catch (error) {
+        console.error('检测国家失败:', error);
+        gameState.country = 'Unknown';
     }
-
-    updateUserCount();
-    setInterval(updateUserCount, 5000);
 }
 
-// 键盘快捷键
+// ============ 键盘快捷键 ============
+
 document.addEventListener('keydown', (e) => {
-    // 空格键开始/停止旋转
     if (e.code === 'Space') {
         e.preventDefault();
         if (gameState.isSpinning) {
@@ -339,46 +543,32 @@ document.addEventListener('keydown', (e) => {
         }
     }
 
-    // P 键切换狂欢模式
     if (e.code === 'KeyP') {
         elements.partyMode.checked = !elements.partyMode.checked;
         elements.partyMode.dispatchEvent(new Event('change'));
     }
 
-    // T 键切换加速模式
     if (e.code === 'KeyT') {
         elements.turboMode.checked = !elements.turboMode.checked;
         elements.turboMode.dispatchEvent(new Event('change'));
     }
 
-    // S 键切换音效
     if (e.code === 'KeyS') {
         elements.soundMode.checked = !elements.soundMode.checked;
         elements.soundMode.dispatchEvent(new Event('change'));
     }
 });
 
-// 页面加载完成后初始化
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
-} else {
-    init();
-}
+// ============ 彩蛋 ============
 
-// 彩蛋：连续点击 logo 10 次
 let logoClickCount = 0;
 let logoClickTimer = null;
 
 document.querySelector('.logo').addEventListener('click', () => {
     logoClickCount++;
 
-    if (logoClickTimer) {
-        clearTimeout(logoClickTimer);
-    }
-
-    logoClickTimer = setTimeout(() => {
-        logoClickCount = 0;
-    }, 2000);
+    if (logoClickTimer) clearTimeout(logoClickTimer);
+    logoClickTimer = setTimeout(() => logoClickCount = 0, 2000);
 
     if (logoClickCount === 10) {
         addTerminalLine('🎉 彩蛋触发！超级狂欢模式！');
@@ -394,33 +584,13 @@ document.querySelector('.logo').addEventListener('click', () => {
     }
 });
 
-// 导出游戏状态（调试用）
-window.spinningCat = {
-    getState: () => gameState,
-    resetStats: () => {
-        gameState.sessionSpins = 0;
-        gameState.totalSpins = 0;
-        gameState.maxSpeed = 0;
-        updateStats();
-        saveGameData();
-        addTerminalLine('统计数据已重置');
-    },
-    addSpins: (count) => {
-        gameState.totalSpins += count;
-        updateStats();
-        saveGameData();
-        addTerminalLine(`已添加 ${count} 次旋转`);
-    }
-};
+// ============ 页面加载初始化 ============
 
-console.log('%c🐱 Spinning Cat v1.0', 'font-size: 20px; font-weight: bold; color: #ff6b9d;');
-console.log('%c欢迎来到旋转猫猫！', 'font-size: 14px; color: #c44569;');
-console.log('快捷键:');
-console.log('  空格键 - 开始/停止旋转');
-console.log('  P - 切换狂欢模式');
-console.log('  T - 切换加速模式');
-console.log('  S - 切换音效');
-console.log('\n调试命令:');
-console.log('  window.spinningCat.getState() - 获取游戏状态');
-console.log('  window.spinningCat.resetStats() - 重置统计');
-console.log('  window.spinningCat.addSpins(n) - 添加旋转次数');
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+} else {
+    init();
+}
+
+console.log('%c🐱 Spinning Cat v2.0', 'font-size: 20px; font-weight: bold; color: #ff6b9d;');
+console.log('%c全栈版本 - 支持实时多人在线', 'font-size: 14px; color: #c44569;');
