@@ -1,187 +1,245 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Spinning Cat - 旋转猫猫</title>
+    <title>Spinning Cat - OIIA</title>
     <link rel="stylesheet" href="style.css">
+    <link rel="icon" type="image/png" href="/Assets/Pictures/Skins/oiia.png">
 </head>
 <body>
-    <!-- 导航栏 -->
-    <nav class="navbar">
-        <div class="nav-left">
-            <span class="logo">🐱 Spinning Cat</span>
-        </div>
-        <div class="nav-center">
-            <a href="#" class="nav-link">事件</a>
-            <a href="#" class="nav-link">旋转者</a>
-            <a href="#" class="nav-link">排行榜</a>
-            <a href="#" class="nav-link">聊天</a>
-        </div>
-        <div class="nav-right">
-            <button class="theme-toggle" id="themeToggle">🌙</button>
-            <select id="langSelect" class="lang-select">
-                <option value="zh">中文</option>
-                <option value="en">English</option>
-                <option value="ja">日本語</option>
-            </select>
-        </div>
-    </nav>
-
-    <!-- 主容器 -->
-    <div class="container">
-        <!-- 左侧控制面板 -->
-        <div class="control-panel">
-            <div class="panel-section">
-                <h3>🎵 选择混音</h3>
-                <select id="remixSelect" class="remix-select">
-                    <option value="none">无音乐</option>
-                    <option value="classic">经典版</option>
-                    <option value="electronic">电子版</option>
-                    <option value="jazz">爵士版</option>
-                    <option value="rock">摇滚版</option>
-                </select>
+    <!-- Top Navigation -->
+    <header class="top-header">
+        <div class="header-left">
+            <div class="logo-section">
+                <span class="logo-text">Spinning Cat</span>
             </div>
+        </div>
+        <div class="header-center">
+            <nav class="main-nav">
+                <button class="nav-tab" data-tab="lab">Lab</button>
+                <button class="nav-tab" data-tab="catmode">Cat Mode <span class="soon-badge">SOON</span></button>
+            </nav>
+        </div>
+        <div class="header-right">
+            <button class="settings-btn" id="settingsBtn">
+                <span>⚙</span>
+            </button>
+            <button class="translate-btn" id="translateBtn">
+                <span>🌐</span> Translate
+            </button>
+        </div>
+    </header>
 
-            <div class="panel-section">
-                <h3>🎨 主题</h3>
-                <div class="theme-buttons">
-                    <button class="theme-btn active" data-theme="light">☀️ 浅色</button>
-                    <button class="theme-btn" data-theme="dark">🌙 深色</button>
-                    <button class="theme-btn" data-theme="rainbow">🌈 彩虹</button>
+    <!-- Main Container -->
+    <div class="main-container">
+        <!-- Left Sidebar -->
+        <aside class="left-sidebar">
+            <div class="sidebar-section">
+                <h3 class="section-title">Themes</h3>
+                <div class="theme-selector">
+                    <button class="theme-option active" data-theme="light">
+                        <span class="theme-icon">☀️</span>
+                        <span class="theme-name">Light</span>
+                    </button>
+                    <button class="theme-option" data-theme="dark">
+                        <span class="theme-icon">🌙</span>
+                        <span class="theme-name">Dark</span>
+                    </button>
                 </div>
             </div>
 
-            <div class="panel-section">
-                <h3>⚙️ 模式</h3>
-                <div class="mode-options">
-                    <label class="checkbox-label">
-                        <input type="checkbox" id="partyMode">
-                        <span>🎉 狂欢模式</span>
+            <div class="sidebar-section">
+                <h3 class="section-title">Player</h3>
+                <div class="player-controls">
+                    <select id="musicSelect" class="music-select">
+                        <option value="none">No Music</option>
+                        <option value="remix1">Remix 1</option>
+                        <option value="remix2">Remix 2</option>
+                    </select>
+                    <div class="speed-control">
+                        <label>Speed: <span id="speedMultiplier">1.0</span>x</label>
+                        <input type="range" id="speedSlider" min="0.5" max="2" step="0.1" value="1.0">
+                    </div>
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+                <h3 class="section-title">Options</h3>
+                <div class="options-list">
+                    <label class="option-item">
+                        <input type="checkbox" id="raveMode">
+                        <span>Rave Mode</span>
                     </label>
-                    <label class="checkbox-label">
-                        <input type="checkbox" id="turboMode">
-                        <span>⚡ 加速模式</span>
-                    </label>
-                    <label class="checkbox-label">
-                        <input type="checkbox" id="soundMode">
-                        <span>🔊 音效</span>
+                    <label class="option-item">
+                        <input type="checkbox" id="soundEnabled">
+                        <span>Sound</span>
                     </label>
                 </div>
             </div>
+        </aside>
 
-            <div class="panel-section">
-                <h3>📊 统计</h3>
-                <div class="stats">
-                    <div class="stat-item">
-                        <span class="stat-label">本次旋转:</span>
-                        <span class="stat-value" id="sessionSpins">0</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-label">总旋转:</span>
-                        <span class="stat-value" id="totalSpins">0</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-label">最高速度:</span>
-                        <span class="stat-value" id="maxSpeed">0</span>
-                    </div>
-                </div>
-            </div>
-
-            <div class="panel-section">
-                <h3>🎮 小工具</h3>
-                <p class="coming-soon">即将推出...</p>
-            </div>
-        </div>
-
-        <!-- 中央旋转区域 -->
-        <div class="main-area">
-            <div class="spin-container">
-                <div class="cat-wrapper" id="catWrapper">
-                    <div class="cat" id="cat">
-                        <img src="https://raw.githubusercontent.com/google/noto-emoji/main/png/128/emoji_u1f431.png" alt="Cat" class="cat-img">
+        <!-- Central Spinning Area -->
+        <main class="center-area">
+            <div class="spinning-section">
+                <div class="cat-container" id="catContainer">
+                    <div class="cat-spinner" id="catSpinner">
+                        <img src="/Assets/Pictures/Skins/oiia.png" alt="OIIA Cat" class="cat-image" id="catImage">
+                        <img src="/Assets/Pictures/inside.png" alt="Inside Sticker" class="inside-sticker">
                     </div>
                 </div>
 
-                <div class="spin-info">
+                <div class="speed-indicator">
                     <div class="speed-display">
-                        <span class="speed-label">当前速度:</span>
                         <span class="speed-value" id="currentSpeed">0</span>
                         <span class="speed-unit">RPM</span>
                     </div>
                 </div>
 
-                <button class="spin-button" id="spinButton">
-                    <span class="button-text">SPIN!</span>
-                    <span class="button-subtext">按住以旋转</span>
+                <button class="spin-btn" id="spinButton">
+                    <span class="spin-btn-text">SPIN!</span>
+                    <span class="spin-btn-hint">HOLD TO SPIN</span>
                 </button>
 
-                <div class="instruction">
-                    <p>👆 按住按钮让猫猫旋转起来！</p>
+                <div class="country-info" id="countryInfo">
+                    <span>Detecting country...</span>
                 </div>
             </div>
+        </main>
+
+        <!-- Right Sidebar -->
+        <aside class="right-sidebar">
+            <div class="sidebar-section terminal-section">
+                <h3 class="section-title">Terminal</h3>
+                <div class="terminal-window" id="terminal">
+                    <div class="terminal-line">Loading...</div>
+                    <div class="terminal-line">Initializing...</div>
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+                <h3 class="section-title">Stats</h3>
+                <div class="stats-display">
+                    <div class="stat-row">
+                        <span class="stat-label">Total Spins:</span>
+                        <span class="stat-value" id="totalSpins">0</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">Your Spins:</span>
+                        <span class="stat-value" id="userSpins">0</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">Top Speed:</span>
+                        <span class="stat-value" id="topSpeed">0</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+                <h3 class="section-title">Messages</h3>
+                <div class="messages-container" id="messagesContainer">
+                    <p class="no-messages">No messages yet</p>
+                </div>
+            </div>
+        </aside>
+    </div>
+
+    <!-- Bottom Navigation Tabs -->
+    <div class="bottom-nav">
+        <div class="nav-tabs">
+            <button class="nav-tab-btn active" data-tab="events">Events</button>
+            <button class="nav-tab-btn" data-tab="spinners">Spinners</button>
+            <button class="nav-tab-btn" data-tab="spins">Spins</button>
+            <button class="nav-tab-btn" data-tab="chat">Chat</button>
+            <button class="nav-tab-btn" data-tab="globe">Globe</button>
         </div>
-
-        <!-- 右侧信息面板 -->
-        <div class="info-panel">
-            <div class="panel-section terminal">
-                <h3>💻 终端</h3>
-                <div class="terminal-content" id="terminal">
-                    <div class="terminal-line">欢迎来到 Spinning Cat!</div>
-                    <div class="terminal-line">系统已就绪...</div>
-                    <div class="terminal-line">等待输入...</div>
+        <div class="tab-content" id="tabContent">
+            <div class="tab-panel active" data-panel="events">
+                <div class="events-list" id="eventsList">
+                    <p class="loading-text">Loading events...</p>
                 </div>
             </div>
-
-            <div class="panel-section">
-                <h3>🏆 今日排行榜</h3>
-                <div class="leaderboard">
-                    <div class="leaderboard-item">
-                        <span class="rank">1.</span>
-                        <span class="name">猫猫大师</span>
-                        <span class="score">9999</span>
-                    </div>
-                    <div class="leaderboard-item">
-                        <span class="rank">2.</span>
-                        <span class="name">旋转专家</span>
-                        <span class="score">8888</span>
-                    </div>
-                    <div class="leaderboard-item">
-                        <span class="rank">3.</span>
-                        <span class="name">喵喵侠</span>
-                        <span class="score">7777</span>
+            <div class="tab-panel" data-panel="spinners">
+                <div class="spinners-list" id="spinnersList">
+                    <p class="loading-text">Loading spinners...</p>
+                </div>
+            </div>
+            <div class="tab-panel" data-panel="spins">
+                <div class="spins-leaderboard" id="spinsLeaderboard">
+                    <p class="loading-text">Loading leaderboard...</p>
+                </div>
+            </div>
+            <div class="tab-panel" data-panel="chat">
+                <div class="chat-container">
+                    <div class="chat-messages" id="chatMessages"></div>
+                    <div class="chat-input-container">
+                        <input type="text" id="chatInput" placeholder="Type a message..." class="chat-input">
+                        <button id="chatSend" class="chat-send-btn">Send</button>
                     </div>
                 </div>
             </div>
-
-            <div class="panel-section">
-                <h3>👥 在线玩家</h3>
-                <div class="online-users">
-                    <span class="user-count" id="userCount">Loading...</span>
+            <div class="tab-panel" data-panel="globe">
+                <div class="globe-view" id="globeView">
+                    <p class="loading-text">Globe view coming soon...</p>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- 页脚 -->
-    <footer class="footer">
-        <div class="footer-content">
-            <p>Made with ❤️ by Claude | Spinning Cat v1.0</p>
-            <div class="footer-links">
-                <a href="#">关于</a>
-                <a href="#">隐私政策</a>
-                <a href="#">Cookie设置</a>
-            </div>
+    <!-- Footer -->
+    <footer class="site-footer">
+        <div class="footer-top">
+            <img src="/Footer/footer-icon.gif" alt="Footer Icon" class="footer-icon">
         </div>
-        <div class="footer-animation">
-            <span class="dancing-cat">🐱</span>
-            <span class="dancing-cat">🐱</span>
-            <span class="dancing-cat">🐱</span>
+        <div class="footer-content">
+            <div class="footer-links">
+                <a href="#" class="footer-link">About</a>
+                <a href="#" class="footer-link">Privacy</a>
+                <a href="#" class="footer-link" id="cookieSettings">Cookie Settings</a>
+                <a href="#" class="footer-link">Terms</a>
+            </div>
+            <p class="footer-copyright">&copy; 2024 Spinning Cat. All rights reserved.</p>
         </div>
     </footer>
 
-    <!-- 粒子效果容器 -->
-    <div class="particles" id="particles"></div>
+    <!-- Cookie Settings Modal -->
+    <div class="modal" id="cookieModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Cookie Settings</h2>
+                <button class="modal-close" id="closeModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="cookie-option">
+                    <label>
+                        <input type="checkbox" checked disabled>
+                        <span>Essential Cookies</span>
+                    </label>
+                    <p class="cookie-desc">Required for basic site functionality</p>
+                </div>
+                <div class="cookie-option">
+                    <label>
+                        <input type="checkbox" id="analyticsCookies">
+                        <span>Analytics Cookies</span>
+                    </label>
+                    <p class="cookie-desc">Help us improve the site</p>
+                </div>
+                <div class="cookie-option">
+                    <label>
+                        <input type="checkbox" id="userDataCookies">
+                        <span>User Data Cookies</span>
+                    </label>
+                    <p class="cookie-desc">Save your preferences</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-primary" id="saveCookies">Save Preferences</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Particle Effects Container -->
+    <canvas id="particleCanvas" class="particle-canvas"></canvas>
 
     <script src="app.js"></script>
 </body>
