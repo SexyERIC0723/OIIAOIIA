@@ -1,89 +1,113 @@
-// ============ 配置 ============
-
+// ==================== Configuration ====================
 const CONFIG = {
     WS_URL: `ws://${window.location.hostname}:${window.location.port || 3000}`,
-    API_URL: `/api`,
-    PING_INTERVAL: 10000, // 10秒
-    STATS_UPDATE_INTERVAL: 5000 // 5秒
+    API_URL: '/api',
+    PING_INTERVAL: 10000,
+    STATS_UPDATE_INTERVAL: 5000
 };
 
-// ============ 游戏状态 ============
-
+// ==================== Game State ====================
 const gameState = {
     sessionId: null,
     username: null,
     country: null,
     isSpinning: false,
-    spinCount: 0,
-    sessionSpins: 0,
-    totalSpins: 0,
     currentSpeed: 0,
     maxSpeed: 0,
     rotation: 0,
-    lastTime: 0,
-    partyMode: false,
-    turboMode: false,
-    soundMode: false,
+    userSpins: 0,
+    totalSpins: 0,
+    topSpeed: 0,
+    raveMode: false,
+    speedMultiplier: 1.0,
+    soundEnabled: false,
     currentTheme: 'light',
-    currentRemix: 'none',
-    acceleration: 0,
     ws: null,
-    connected: false
+    connected: false,
+    lastTime: Date.now(),
+    spinStartTime: 0
 };
 
-// ============ DOM 元素 ============
-
+// ==================== DOM Elements ====================
 const elements = {
-    cat: document.getElementById('cat'),
-    catWrapper: document.getElementById('catWrapper'),
+    // Cat elements
+    catSpinner: document.getElementById('catSpinner'),
+    catContainer: document.getElementById('catContainer'),
+    catImage: document.getElementById('catImage'),
+
+    // Controls
     spinButton: document.getElementById('spinButton'),
+    speedSlider: document.getElementById('speedSlider'),
+    speedMultiplier: document.getElementById('speedMultiplier'),
+    raveMode: document.getElementById('raveMode'),
+    soundEnabled: document.getElementById('soundEnabled'),
+    musicSelect: document.getElementById('musicSelect'),
+
+    // Display
     currentSpeed: document.getElementById('currentSpeed'),
-    sessionSpins: document.getElementById('sessionSpins'),
     totalSpins: document.getElementById('totalSpins'),
-    maxSpeed: document.getElementById('maxSpeed'),
-    partyMode: document.getElementById('partyMode'),
-    turboMode: document.getElementById('turboMode'),
-    soundMode: document.getElementById('soundMode'),
-    themeButtons: document.querySelectorAll('.theme-btn'),
-    themeToggle: document.getElementById('themeToggle'),
-    remixSelect: document.getElementById('remixSelect'),
-    langSelect: document.getElementById('langSelect'),
+    userSpins: document.getElementById('userSpins'),
+    topSpeed: document.getElementById('topSpeed'),
+    countryInfo: document.getElementById('countryInfo'),
+
+    // Terminal
     terminal: document.getElementById('terminal'),
-    userCount: document.getElementById('userCount'),
-    particles: document.getElementById('particles')
+
+    // Theme
+    themeOptions: document.querySelectorAll('.theme-option'),
+
+    // Navigation
+    navTabBtns: document.querySelectorAll('.nav-tab-btn'),
+    tabPanels: document.querySelectorAll('.tab-panel'),
+
+    // Modal
+    cookieModal: document.getElementById('cookieModal'),
+    cookieSettings: document.getElementById('cookieSettings'),
+    closeModal: document.getElementById('closeModal'),
+    saveCookies: document.getElementById('saveCookies'),
+
+    // Chat
+    chatInput: document.getElementById('chatInput'),
+    chatSend: document.getElementById('chatSend'),
+    chatMessages: document.getElementById('chatMessages'),
+
+    // Particle canvas
+    particleCanvas: document.getElementById('particleCanvas')
 };
 
-// ============ 初始化 ============
-
+// ==================== Initialization ====================
 function init() {
-    // 生成或获取 session ID
-    gameState.sessionId = getOrCreateSessionId();
+    addTerminalLine('Initializing Spinning Cat...');
 
-    // 检测国家
+    // Generate or get session ID
+    gameState.sessionId = getOrCreateSessionId();
+    addTerminalLine(`Session ID: ${gameState.sessionId.substring(0, 8)}...`);
+
+    // Detect country
     detectCountry();
 
-    // 加载游戏数据
+    // Load saved data
     loadGameData();
 
-    // 设置事件监听器
+    // Setup event listeners
     setupEventListeners();
 
-    // 连接 WebSocket
+    // Connect WebSocket
     connectWebSocket();
 
-    // 启动动画循环
+    // Start animation loop
     startAnimationLoop();
 
-    // 更新统计
+    // Load stats from server
     updateStatsFromServer();
 
-    addTerminalLine('系统初始化完成 ✓');
-    addTerminalLine(`Session ID: ${gameState.sessionId.substring(0, 8)}...`);
-    addTerminalLine('正在连接服务器...');
+    // Initialize particle canvas
+    initParticleCanvas();
+
+    addTerminalLine('System ready!');
 }
 
-// ============ Session 管理 ============
-
+// ==================== Session Management ====================
 function getOrCreateSessionId() {
     let sessionId = localStorage.getItem('spinningCatSessionId');
     if (!sessionId) {
@@ -101,121 +125,235 @@ function generateUUID() {
     });
 }
 
-// ============ WebSocket 连接 ============
-
-function connectWebSocket() {
-    try {
-        gameState.ws = new WebSocket(CONFIG.WS_URL);
-
-        gameState.ws.onopen = () => {
-            console.log('WebSocket 连接成功');
-            gameState.connected = true;
-            addTerminalLine('✓ 服务器连接成功');
-
-            // 发送初始化消息
-            sendWSMessage({
-                type: 'init',
-                sessionId: gameState.sessionId,
-                username: gameState.username,
-                country: gameState.country
-            });
-
-            // 开始心跳
-            startHeartbeat();
-        };
-
-        gameState.ws.onmessage = (event) => {
-            try {
-                const data = JSON.parse(event.data);
-                handleWSMessage(data);
-            } catch (error) {
-                console.error('处理 WebSocket 消息失败:', error);
-            }
-        };
-
-        gameState.ws.onclose = () => {
-            console.log('WebSocket 连接关闭');
-            gameState.connected = false;
-            addTerminalLine('⚠ 服务器连接断开');
-
-            // 5秒后重连
-            setTimeout(() => {
-                addTerminalLine('尝试重新连接...');
-                connectWebSocket();
-            }, 5000);
-        };
-
-        gameState.ws.onerror = (error) => {
-            console.error('WebSocket 错误:', error);
-            addTerminalLine('✗ 连接错误');
-        };
-    } catch (error) {
-        console.error('创建 WebSocket 连接失败:', error);
-        addTerminalLine('✗ 无法连接到服务器');
+// ==================== Data Loading/Saving ====================
+function loadGameData() {
+    const saved = localStorage.getItem('spinningCatData');
+    if (saved) {
+        try {
+            const data = JSON.parse(saved);
+            gameState.username = data.username || `User${Math.floor(Math.random() * 10000)}`;
+            gameState.currentTheme = data.theme || 'light';
+            applyTheme(gameState.currentTheme);
+        } catch (e) {
+            console.error('Failed to load saved data:', e);
+        }
+    } else {
+        gameState.username = `User${Math.floor(Math.random() * 10000)}`;
     }
 }
 
-function sendWSMessage(data) {
-    if (gameState.ws && gameState.ws.readyState === WebSocket.OPEN) {
-        gameState.ws.send(JSON.stringify(data));
-    }
+function saveGameData() {
+    const data = {
+        username: gameState.username,
+        theme: gameState.currentTheme
+    };
+    localStorage.setItem('spinningCatData', JSON.stringify(data));
 }
 
-function handleWSMessage(data) {
-    switch (data.type) {
-        case 'init_success':
-            addTerminalLine('✓ 初始化成功');
-            break;
+// ==================== Event Listeners ====================
+function setupEventListeners() {
+    // Spin button - mouse events
+    elements.spinButton.addEventListener('mousedown', startSpinning);
+    elements.spinButton.addEventListener('mouseup', stopSpinning);
+    elements.spinButton.addEventListener('mouseleave', stopSpinning);
 
-        case 'pong':
-            // 心跳响应
-            break;
+    // Spin button - touch events
+    elements.spinButton.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        startSpinning();
+    });
+    elements.spinButton.addEventListener('touchend', (e) => {
+        e.preventDefault();
+        stopSpinning();
+    });
 
-        case 'spin_event':
-            // 其他用户旋转事件
-            if (Math.random() < 0.1) { // 10% 概率显示
-                addTerminalLine(`🌍 ${data.username} 旋转速度: ${Math.round(data.speed)} RPM`);
-            }
-            break;
-
-        case 'stats_update':
-            updateGlobalStats(data.stats);
-            break;
-
-        case 'online_count':
-            elements.userCount.textContent = `${data.count} 人在线 (${data.countries} 个国家)`;
-            break;
-
-        case 'chat_message':
-            // 聊天消息（可以扩展聊天UI）
-            addTerminalLine(`💬 ${data.username}: ${data.message}`);
-            break;
-
-        case 'leaderboard_update':
-            updateLeaderboard(data.leaderboardType, data.data);
-            break;
-
-        case 'events_update':
-            updateEvents(data.events);
-            break;
-
-        default:
-            console.log('未知消息类型:', data.type);
-    }
-}
-
-function startHeartbeat() {
-    setInterval(() => {
-        sendWSMessage({
-            type: 'ping',
-            username: gameState.username,
-            country: gameState.country
+    // Speed slider
+    if (elements.speedSlider) {
+        elements.speedSlider.addEventListener('input', (e) => {
+            gameState.speedMultiplier = parseFloat(e.target.value);
+            elements.speedMultiplier.textContent = gameState.speedMultiplier.toFixed(1);
         });
-    }, CONFIG.PING_INTERVAL);
+    }
+
+    // Rave mode
+    if (elements.raveMode) {
+        elements.raveMode.addEventListener('change', (e) => {
+            gameState.raveMode = e.target.checked;
+            if (gameState.raveMode) {
+                elements.catContainer.classList.add('rave-mode');
+                addTerminalLine('Rave mode activated!');
+            } else {
+                elements.catContainer.classList.remove('rave-mode');
+                addTerminalLine('Rave mode deactivated');
+            }
+        });
+    }
+
+    // Sound toggle
+    if (elements.soundEnabled) {
+        elements.soundEnabled.addEventListener('change', (e) => {
+            gameState.soundEnabled = e.target.checked;
+            addTerminalLine(gameState.soundEnabled ? 'Sound enabled' : 'Sound disabled');
+        });
+    }
+
+    // Theme options
+    elements.themeOptions.forEach(btn => {
+        btn.addEventListener('click', () => {
+            const theme = btn.getAttribute('data-theme');
+            applyTheme(theme);
+            elements.themeOptions.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+        });
+    });
+
+    // Navigation tabs
+    elements.navTabBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            const tab = btn.getAttribute('data-tab');
+            switchTab(tab);
+        });
+    });
+
+    // Cookie modal
+    if (elements.cookieSettings) {
+        elements.cookieSettings.addEventListener('click', () => {
+            elements.cookieModal.classList.add('active');
+        });
+    }
+
+    if (elements.closeModal) {
+        elements.closeModal.addEventListener('click', () => {
+            elements.cookieModal.classList.remove('active');
+        });
+    }
+
+    if (elements.saveCookies) {
+        elements.saveCookies.addEventListener('click', () => {
+            elements.cookieModal.classList.remove('active');
+            addTerminalLine('Cookie preferences saved');
+        });
+    }
+
+    // Chat
+    if (elements.chatSend) {
+        elements.chatSend.addEventListener('click', sendChatMessage);
+    }
+
+    if (elements.chatInput) {
+        elements.chatInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                sendChatMessage();
+            }
+        });
+    }
+
+    // Keyboard shortcuts
+    document.addEventListener('keydown', handleKeyPress);
 }
 
-// ============ API 调用 ============
+function handleKeyPress(e) {
+    // Space - toggle spin
+    if (e.code === 'Space' && e.target.tagName !== 'INPUT') {
+        e.preventDefault();
+        if (gameState.isSpinning) {
+            stopSpinning();
+        } else {
+            startSpinning();
+        }
+    }
+}
 
+// ==================== Spinning Logic ====================
+function startSpinning() {
+    if (gameState.isSpinning) return;
+
+    gameState.isSpinning = true;
+    gameState.spinStartTime = Date.now();
+    elements.spinButton.classList.add('active');
+
+    addTerminalLine('Spinning started...');
+}
+
+function stopSpinning() {
+    if (!gameState.isSpinning) return;
+
+    gameState.isSpinning = false;
+    elements.spinButton.classList.remove('active');
+
+    const duration = (Date.now() - gameState.spinStartTime) / 1000;
+
+    if (gameState.currentSpeed > 10 && duration > 0.5) {
+        gameState.userSpins++;
+        updateStats();
+
+        // Record to server
+        recordSpinToServer(gameState.currentSpeed, duration);
+
+        addTerminalLine(`Spin complete - Speed: ${Math.round(gameState.currentSpeed)} RPM, Duration: ${duration.toFixed(1)}s`);
+
+        if (gameState.userSpins % 10 === 0) {
+            addTerminalLine(`Milestone: ${gameState.userSpins} spins!`);
+            createCelebrationParticles();
+        }
+    }
+}
+
+function startAnimationLoop() {
+    function animate() {
+        const now = Date.now();
+        const deltaTime = (now - gameState.lastTime) / 1000;
+        gameState.lastTime = now;
+
+        if (gameState.isSpinning) {
+            // Accelerate
+            const baseAcceleration = 400;
+            const acceleration = baseAcceleration * gameState.speedMultiplier;
+            gameState.currentSpeed += acceleration * deltaTime;
+
+            // Cap max speed
+            const maxSpeed = 500 * gameState.speedMultiplier;
+            if (gameState.currentSpeed > maxSpeed) {
+                gameState.currentSpeed = maxSpeed;
+            }
+
+            // Update max speed
+            if (gameState.currentSpeed > gameState.maxSpeed) {
+                gameState.maxSpeed = gameState.currentSpeed;
+                gameState.topSpeed = Math.max(gameState.topSpeed, gameState.maxSpeed);
+            }
+        } else {
+            // Decelerate
+            const deceleration = 200;
+            gameState.currentSpeed -= deceleration * deltaTime;
+            if (gameState.currentSpeed < 0) {
+                gameState.currentSpeed = 0;
+            }
+        }
+
+        // Update rotation
+        if (gameState.currentSpeed > 0) {
+            const rotationSpeed = gameState.currentSpeed * 6;
+            gameState.rotation += rotationSpeed * deltaTime;
+            gameState.rotation %= 360;
+
+            if (elements.catSpinner) {
+                elements.catSpinner.style.transform = `rotate(${gameState.rotation}deg)`;
+            }
+        }
+
+        // Update display
+        if (elements.currentSpeed) {
+            elements.currentSpeed.textContent = Math.round(gameState.currentSpeed);
+        }
+
+        requestAnimationFrame(animate);
+    }
+
+    animate();
+}
+
+// ==================== API Calls ====================
 async function apiCall(endpoint, method = 'GET', body = null) {
     try {
         const options = {
@@ -232,7 +370,7 @@ async function apiCall(endpoint, method = 'GET', body = null) {
         const response = await fetch(`${CONFIG.API_URL}${endpoint}`, options);
         return await response.json();
     } catch (error) {
-        console.error('API 调用失败:', error);
+        console.error('API call failed:', error);
         return null;
     }
 }
@@ -247,12 +385,12 @@ async function recordSpinToServer(speed, duration) {
     });
 
     if (data && data.stats) {
-        gameState.totalSpins = data.stats.total_spins;
-        gameState.maxSpeed = data.stats.max_speed;
+        gameState.totalSpins = data.stats.total_spins || 0;
+        gameState.topSpeed = Math.max(gameState.topSpeed, data.stats.max_speed || 0);
         updateStats();
     }
 
-    // 通过 WebSocket 广播
+    // Broadcast via WebSocket
     sendWSMessage({
         type: 'spin',
         speed,
@@ -266,11 +404,11 @@ async function updateStatsFromServer() {
     const data = await apiCall(`/stats/user/${gameState.sessionId}`);
     if (data) {
         gameState.totalSpins = data.total_spins || 0;
-        gameState.maxSpeed = data.max_speed || 0;
+        gameState.topSpeed = data.max_speed || 0;
         updateStats();
     }
 
-    // 定期更新
+    // Update global stats periodically
     setInterval(async () => {
         const globalData = await apiCall('/stats/global');
         if (globalData) {
@@ -279,318 +417,319 @@ async function updateStatsFromServer() {
     }, CONFIG.STATS_UPDATE_INTERVAL);
 }
 
-// ============ 游戏逻辑 ============
-
-function loadGameData() {
-    const savedData = localStorage.getItem('spinningCatData');
-    if (savedData) {
-        const data = JSON.parse(savedData);
-        gameState.username = data.username;
-        gameState.currentTheme = data.theme || 'light';
-        applyTheme(gameState.currentTheme);
-    }
-}
-
-function saveGameData() {
-    const data = {
-        username: gameState.username,
-        theme: gameState.currentTheme
-    };
-    localStorage.setItem('spinningCatData', JSON.stringify(data));
-}
-
-function setupEventListeners() {
-    // 旋转按钮
-    elements.spinButton.addEventListener('mousedown', startSpinning);
-    elements.spinButton.addEventListener('mouseup', stopSpinning);
-    elements.spinButton.addEventListener('mouseleave', stopSpinning);
-    elements.spinButton.addEventListener('touchstart', (e) => {
-        e.preventDefault();
-        startSpinning();
-    });
-    elements.spinButton.addEventListener('touchend', (e) => {
-        e.preventDefault();
-        stopSpinning();
-    });
-
-    // 模式切换
-    elements.partyMode.addEventListener('change', (e) => {
-        gameState.partyMode = e.target.checked;
-        if (gameState.partyMode) {
-            elements.catWrapper.classList.add('party-mode');
-            addTerminalLine('🎉 狂欢模式已启动！');
-            createPartyParticles();
-        } else {
-            elements.catWrapper.classList.remove('party-mode');
-            addTerminalLine('狂欢模式已关闭');
-        }
-    });
-
-    elements.turboMode.addEventListener('change', (e) => {
-        gameState.turboMode = e.target.checked;
-        addTerminalLine(gameState.turboMode ? '⚡ 加速模式已启动！' : '加速模式已关闭');
-    });
-
-    elements.soundMode.addEventListener('change', (e) => {
-        gameState.soundMode = e.target.checked;
-        addTerminalLine(gameState.soundMode ? '🔊 音效已开启' : '🔇 音效已关闭');
-    });
-
-    // 主题切换
-    elements.themeButtons.forEach(btn => {
-        btn.addEventListener('click', () => {
-            const theme = btn.getAttribute('data-theme');
-            applyTheme(theme);
-            elements.themeButtons.forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-        });
-    });
-
-    elements.themeToggle.addEventListener('click', () => {
-        const currentTheme = document.body.getAttribute('data-theme');
-        const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-        applyTheme(newTheme);
-    });
-
-    // 混音选择
-    elements.remixSelect.addEventListener('change', (e) => {
-        gameState.currentRemix = e.target.value;
-        addTerminalLine(`🎵 切换到: ${e.target.options[e.target.selectedIndex].text}`);
-    });
-}
-
-function startSpinning() {
-    if (gameState.isSpinning) return;
-
-    gameState.isSpinning = true;
-    gameState.lastTime = Date.now();
-    gameState.spinStartTime = Date.now();
-    elements.spinButton.classList.add('active');
-
-    addTerminalLine('开始旋转... 🔄');
-}
-
-function stopSpinning() {
-    if (!gameState.isSpinning) return;
-
-    gameState.isSpinning = false;
-    elements.spinButton.classList.remove('active');
-
-    const duration = (Date.now() - gameState.spinStartTime) / 1000;
-
-    // 记录旋转
-    if (gameState.currentSpeed > 10 && duration > 0.5) {
-        gameState.sessionSpins++;
-        updateStats();
-
-        // 发送到服务器
-        recordSpinToServer(gameState.currentSpeed, duration);
-
-        addTerminalLine(`完成旋转 - 速度: ${Math.round(gameState.currentSpeed)} RPM, 时长: ${duration.toFixed(1)}s`);
-
-        if (gameState.sessionSpins % 10 === 0) {
-            addTerminalLine(`🎊 里程碑: ${gameState.sessionSpins} 次旋转！`);
-            createCelebrationParticles();
-        }
-    }
-}
-
-function startAnimationLoop() {
-    function animate() {
-        const now = Date.now();
-        const deltaTime = (now - gameState.lastTime) / 1000;
-        gameState.lastTime = now;
-
-        if (gameState.isSpinning) {
-            const baseAcceleration = gameState.turboMode ? 800 : 400;
-            gameState.acceleration = baseAcceleration;
-            gameState.currentSpeed += gameState.acceleration * deltaTime;
-
-            const maxSpeed = gameState.turboMode ? 1000 : 500;
-            if (gameState.currentSpeed > maxSpeed) {
-                gameState.currentSpeed = maxSpeed;
-            }
-        } else {
-            const deceleration = 200;
-            gameState.currentSpeed -= deceleration * deltaTime;
-            if (gameState.currentSpeed < 0) {
-                gameState.currentSpeed = 0;
-            }
-        }
-
-        if (gameState.currentSpeed > 0) {
-            const rotationSpeed = gameState.currentSpeed * 6;
-            gameState.rotation += rotationSpeed * deltaTime;
-            gameState.rotation %= 360;
-
-            elements.cat.style.transform = `rotate(${gameState.rotation}deg)`;
-        }
-
-        elements.currentSpeed.textContent = Math.round(gameState.currentSpeed);
-
-        if (gameState.partyMode && gameState.isSpinning && Math.random() < 0.1) {
-            createParticle();
-        }
-
-        requestAnimationFrame(animate);
-    }
-
-    animate();
-}
-
-function applyTheme(theme) {
-    gameState.currentTheme = theme;
-    document.body.setAttribute('data-theme', theme);
-
-    const icons = { light: '☀️', dark: '🌙', rainbow: '🌈' };
-    elements.themeToggle.textContent = icons[theme] || '🌙';
-
-    addTerminalLine(`主题已切换: ${theme}`);
-    saveGameData();
-}
-
 function updateStats() {
-    elements.sessionSpins.textContent = gameState.sessionSpins;
-    elements.totalSpins.textContent = gameState.totalSpins;
-    elements.maxSpeed.textContent = Math.round(gameState.maxSpeed);
+    if (elements.userSpins) {
+        elements.userSpins.textContent = gameState.userSpins;
+    }
+    if (elements.totalSpins) {
+        elements.totalSpins.textContent = gameState.totalSpins;
+    }
+    if (elements.topSpeed) {
+        elements.topSpeed.textContent = Math.round(gameState.topSpeed);
+    }
 }
 
 function updateGlobalStats(stats) {
-    if (stats.today) {
-        // 可以更新今日统计显示
+    if (stats.total_spins) {
+        elements.totalSpins.textContent = stats.total_spins;
     }
 }
 
-function updateLeaderboard(type, data) {
-    // 更新排行榜显示（可以扩展UI）
-    console.log('Leaderboard update:', type, data);
-}
+// ==================== WebSocket ====================
+function connectWebSocket() {
+    try {
+        gameState.ws = new WebSocket(CONFIG.WS_URL);
 
-function updateEvents(events) {
-    // 更新事件显示（可以扩展UI）
-    console.log('Events update:', events);
-}
+        gameState.ws.onopen = () => {
+            console.log('WebSocket connected');
+            gameState.connected = true;
+            addTerminalLine('Connected to server');
 
-// ============ UI 辅助函数 ============
+            // Send init message
+            sendWSMessage({
+                type: 'init',
+                sessionId: gameState.sessionId,
+                username: gameState.username,
+                country: gameState.country
+            });
 
-function addTerminalLine(text) {
-    const line = document.createElement('div');
-    line.className = 'terminal-line';
-    line.textContent = text;
-    elements.terminal.appendChild(line);
+            // Start heartbeat
+            startHeartbeat();
+        };
 
-    while (elements.terminal.children.length > 10) {
-        elements.terminal.removeChild(elements.terminal.firstChild);
-    }
+        gameState.ws.onmessage = (event) => {
+            try {
+                const data = JSON.parse(event.data);
+                handleWSMessage(data);
+            } catch (error) {
+                console.error('Failed to handle WebSocket message:', error);
+            }
+        };
 
-    elements.terminal.scrollTop = elements.terminal.scrollHeight;
-}
+        gameState.ws.onclose = () => {
+            console.log('WebSocket disconnected');
+            gameState.connected = false;
+            addTerminalLine('Connection lost. Reconnecting...');
 
-function createParticle() {
-    const particle = document.createElement('div');
-    particle.className = 'particle';
+            // Reconnect after 5 seconds
+            setTimeout(connectWebSocket, 5000);
+        };
 
-    const colors = ['#ff6b9d', '#c44569', '#4facfe', '#00f2fe', '#feca57', '#ff9ff3'];
-    particle.style.background = colors[Math.floor(Math.random() * colors.length)];
-    particle.style.left = Math.random() * 100 + '%';
-    particle.style.top = '-10px';
-    particle.style.animationDuration = (Math.random() * 2 + 2) + 's';
-
-    elements.particles.appendChild(particle);
-
-    setTimeout(() => {
-        if (particle.parentNode) {
-            particle.parentNode.removeChild(particle);
-        }
-    }, 4000);
-}
-
-function createPartyParticles() {
-    for (let i = 0; i < 20; i++) {
-        setTimeout(() => createParticle(), i * 100);
-    }
-}
-
-function createCelebrationParticles() {
-    for (let i = 0; i < 50; i++) {
-        setTimeout(() => createParticle(), i * 50);
+        gameState.ws.onerror = (error) => {
+            console.error('WebSocket error:', error);
+            addTerminalLine('Connection error');
+        };
+    } catch (error) {
+        console.error('Failed to create WebSocket:', error);
+        addTerminalLine('Failed to connect to server');
     }
 }
 
-// ============ 国家检测 ============
+function sendWSMessage(data) {
+    if (gameState.ws && gameState.ws.readyState === WebSocket.OPEN) {
+        gameState.ws.send(JSON.stringify(data));
+    }
+}
 
+function handleWSMessage(data) {
+    switch (data.type) {
+        case 'init_success':
+            addTerminalLine('Initialization successful');
+            break;
+
+        case 'pong':
+            // Heartbeat response
+            break;
+
+        case 'spin_event':
+            if (Math.random() < 0.1) {
+                addTerminalLine(`${data.username} spun at ${Math.round(data.speed)} RPM`);
+            }
+            break;
+
+        case 'stats_update':
+            updateGlobalStats(data.stats);
+            break;
+
+        case 'online_count':
+            // Update online count if we have a display for it
+            addTerminalLine(`${data.count} users online from ${data.countries} countries`);
+            break;
+
+        case 'chat_message':
+            displayChatMessage(data);
+            break;
+
+        case 'leaderboard_update':
+            updateLeaderboard(data.leaderboardType, data.data);
+            break;
+
+        default:
+            console.log('Unknown message type:', data.type);
+    }
+}
+
+function startHeartbeat() {
+    setInterval(() => {
+        sendWSMessage({
+            type: 'ping',
+            username: gameState.username,
+            country: gameState.country
+        });
+    }, CONFIG.PING_INTERVAL);
+}
+
+// ==================== Country Detection ====================
 async function detectCountry() {
     try {
         const response = await fetch('https://ipapi.co/json/');
         const data = await response.json();
         gameState.country = data.country_code || 'Unknown';
-        addTerminalLine(`📍 位置: ${data.country_name || 'Unknown'}`);
+
+        if (elements.countryInfo) {
+            elements.countryInfo.innerHTML = `<span>📍 ${data.country_name || 'Unknown'}</span>`;
+        }
+
+        addTerminalLine(`Location: ${data.country_name || 'Unknown'}`);
     } catch (error) {
-        console.error('检测国家失败:', error);
+        console.error('Failed to detect country:', error);
         gameState.country = 'Unknown';
+        if (elements.countryInfo) {
+            elements.countryInfo.innerHTML = '<span>📍 Location unknown</span>';
+        }
     }
 }
 
-// ============ 键盘快捷键 ============
+// ==================== Theme Management ====================
+function applyTheme(theme) {
+    gameState.currentTheme = theme;
+    document.body.setAttribute('data-theme', theme);
+    addTerminalLine(`Theme changed to ${theme}`);
+    saveGameData();
+}
 
-document.addEventListener('keydown', (e) => {
-    if (e.code === 'Space') {
-        e.preventDefault();
-        if (gameState.isSpinning) {
-            stopSpinning();
+// ==================== Navigation ====================
+function switchTab(tabName) {
+    // Update buttons
+    elements.navTabBtns.forEach(btn => {
+        if (btn.getAttribute('data-tab') === tabName) {
+            btn.classList.add('active');
         } else {
-            startSpinning();
+            btn.classList.remove('active');
         }
+    });
+
+    // Update panels
+    elements.tabPanels.forEach(panel => {
+        if (panel.getAttribute('data-panel') === tabName) {
+            panel.classList.add('active');
+        } else {
+            panel.classList.remove('active');
+        }
+    });
+}
+
+// ==================== Chat ====================
+function sendChatMessage() {
+    if (!elements.chatInput || !elements.chatInput.value.trim()) return;
+
+    const message = elements.chatInput.value.trim();
+
+    // Send to server
+    apiCall('/chat/message', 'POST', {
+        sessionId: gameState.sessionId,
+        message,
+        username: gameState.username
+    });
+
+    // Send via WebSocket
+    sendWSMessage({
+        type: 'chat',
+        message
+    });
+
+    elements.chatInput.value = '';
+}
+
+function displayChatMessage(data) {
+    if (!elements.chatMessages) return;
+
+    const messageEl = document.createElement('div');
+    messageEl.className = 'chat-message';
+    messageEl.innerHTML = `<strong>${data.username}:</strong> ${data.message}`;
+    elements.chatMessages.appendChild(messageEl);
+
+    // Scroll to bottom
+    elements.chatMessages.scrollTop = elements.chatMessages.scrollHeight;
+}
+
+function updateLeaderboard(type, data) {
+    // Update leaderboard display
+    console.log('Leaderboard update:', type, data);
+}
+
+// ==================== Terminal ====================
+function addTerminalLine(text) {
+    if (!elements.terminal) return;
+
+    const line = document.createElement('div');
+    line.className = 'terminal-line';
+    line.textContent = text;
+    elements.terminal.appendChild(line);
+
+    // Keep only last 10 lines
+    while (elements.terminal.children.length > 10) {
+        elements.terminal.removeChild(elements.terminal.firstChild);
     }
 
-    if (e.code === 'KeyP') {
-        elements.partyMode.checked = !elements.partyMode.checked;
-        elements.partyMode.dispatchEvent(new Event('change'));
+    // Scroll to bottom
+    elements.terminal.scrollTop = elements.terminal.scrollHeight;
+}
+
+// ==================== Particle Effects ====================
+function initParticleCanvas() {
+    if (!elements.particleCanvas) return;
+
+    const canvas = elements.particleCanvas;
+    const ctx = canvas.getContext('2d');
+
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    window.addEventListener('resize', () => {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+    });
+
+    const particles = [];
+
+    function createParticle(x, y) {
+        particles.push({
+            x,
+            y,
+            vx: (Math.random() - 0.5) * 4,
+            vy: Math.random() * -4 - 2,
+            life: 1,
+            decay: Math.random() * 0.02 + 0.01,
+            size: Math.random() * 8 + 4,
+            color: `hsl(${Math.random() * 360}, 70%, 60%)`
+        });
     }
 
-    if (e.code === 'KeyT') {
-        elements.turboMode.checked = !elements.turboMode.checked;
-        elements.turboMode.dispatchEvent(new Event('change'));
+    function animateParticles() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        for (let i = particles.length - 1; i >= 0; i--) {
+            const p = particles[i];
+
+            p.x += p.vx;
+            p.y += p.vy;
+            p.vy += 0.1; // gravity
+            p.life -= p.decay;
+
+            if (p.life <= 0) {
+                particles.splice(i, 1);
+                continue;
+            }
+
+            ctx.globalAlpha = p.life;
+            ctx.fillStyle = p.color;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        ctx.globalAlpha = 1;
+
+        requestAnimationFrame(animateParticles);
     }
 
-    if (e.code === 'KeyS') {
-        elements.soundMode.checked = !elements.soundMode.checked;
-        elements.soundMode.dispatchEvent(new Event('change'));
+    animateParticles();
+
+    // Expose particle creation
+    window.createParticles = (count = 20) => {
+        const rect = elements.catContainer.getBoundingClientRect();
+        const centerX = rect.left + rect.width / 2;
+        const centerY = rect.top + rect.height / 2;
+
+        for (let i = 0; i < count; i++) {
+            createParticle(centerX, centerY);
+        }
+    };
+}
+
+function createCelebrationParticles() {
+    if (window.createParticles) {
+        window.createParticles(50);
     }
-});
+}
 
-// ============ 彩蛋 ============
-
-let logoClickCount = 0;
-let logoClickTimer = null;
-
-document.querySelector('.logo').addEventListener('click', () => {
-    logoClickCount++;
-
-    if (logoClickTimer) clearTimeout(logoClickTimer);
-    logoClickTimer = setTimeout(() => logoClickCount = 0, 2000);
-
-    if (logoClickCount === 10) {
-        addTerminalLine('🎉 彩蛋触发！超级狂欢模式！');
-        elements.partyMode.checked = true;
-        elements.turboMode.checked = true;
-        elements.soundMode.checked = true;
-        elements.partyMode.dispatchEvent(new Event('change'));
-        elements.turboMode.dispatchEvent(new Event('change'));
-        elements.soundMode.dispatchEvent(new Event('change'));
-        applyTheme('rainbow');
-        createCelebrationParticles();
-        logoClickCount = 0;
-    }
-});
-
-// ============ 页面加载初始化 ============
-
+// ==================== Initialize on Load ====================
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
 } else {
     init();
 }
 
-console.log('%c🐱 Spinning Cat v2.0', 'font-size: 20px; font-weight: bold; color: #ff6b9d;');
-console.log('%c全栈版本 - 支持实时多人在线', 'font-size: 14px; color: #c44569;');
+console.log('%c🐱 Spinning Cat', 'font-size: 24px; font-weight: bold; color: #ff6b9d;');
+console.log('%cClone of spinning.cat', 'font-size: 14px; color: #666;');
