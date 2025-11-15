@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spinning Cat - 旋转猫猫</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- 导航栏 -->
+    <nav class="navbar">
+        <div class="nav-left">
+            <span class="logo">🐱 Spinning Cat</span>
+        </div>
+        <div class="nav-center">
+            <a href="#" class="nav-link">事件</a>
+            <a href="#" class="nav-link">旋转者</a>
+            <a href="#" class="nav-link">排行榜</a>
+            <a href="#" class="nav-link">聊天</a>
+        </div>
+        <div class="nav-right">
+            <button class="theme-toggle" id="themeToggle">🌙</button>
+            <select id="langSelect" class="lang-select">
+                <option value="zh">中文</option>
+                <option value="en">English</option>
+                <option value="ja">日本語</option>
+            </select>
+        </div>
+    </nav>
+
+    <!-- 主容器 -->
+    <div class="container">
+        <!-- 左侧控制面板 -->
+        <div class="control-panel">
+            <div class="panel-section">
+                <h3>🎵 选择混音</h3>
+                <select id="remixSelect" class="remix-select">
+                    <option value="none">无音乐</option>
+                    <option value="classic">经典版</option>
+                    <option value="electronic">电子版</option>
+                    <option value="jazz">爵士版</option>
+                    <option value="rock">摇滚版</option>
+                </select>
+            </div>
+
+            <div class="panel-section">
+                <h3>🎨 主题</h3>
+                <div class="theme-buttons">
+                    <button class="theme-btn active" data-theme="light">☀️ 浅色</button>
+                    <button class="theme-btn" data-theme="dark">🌙 深色</button>
+                    <button class="theme-btn" data-theme="rainbow">🌈 彩虹</button>
+                </div>
+            </div>
+
+            <div class="panel-section">
+                <h3>⚙️ 模式</h3>
+                <div class="mode-options">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="partyMode">
+                        <span>🎉 狂欢模式</span>
+                    </label>
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="turboMode">
+                        <span>⚡ 加速模式</span>
+                    </label>
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="soundMode">
+                        <span>🔊 音效</span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="panel-section">
+                <h3>📊 统计</h3>
+                <div class="stats">
+                    <div class="stat-item">
+                        <span class="stat-label">本次旋转:</span>
+                        <span class="stat-value" id="sessionSpins">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">总旋转:</span>
+                        <span class="stat-value" id="totalSpins">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">最高速度:</span>
+                        <span class="stat-value" id="maxSpeed">0</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel-section">
+                <h3>🎮 小工具</h3>
+                <p class="coming-soon">即将推出...</p>
+            </div>
+        </div>
+
+        <!-- 中央旋转区域 -->
+        <div class="main-area">
+            <div class="spin-container">
+                <div class="cat-wrapper" id="catWrapper">
+                    <div class="cat" id="cat">
+                        <img src="https://raw.githubusercontent.com/google/noto-emoji/main/png/128/emoji_u1f431.png" alt="Cat" class="cat-img">
+                    </div>
+                </div>
+
+                <div class="spin-info">
+                    <div class="speed-display">
+                        <span class="speed-label">当前速度:</span>
+                        <span class="speed-value" id="currentSpeed">0</span>
+                        <span class="speed-unit">RPM</span>
+                    </div>
+                </div>
+
+                <button class="spin-button" id="spinButton">
+                    <span class="button-text">SPIN!</span>
+                    <span class="button-subtext">按住以旋转</span>
+                </button>
+
+                <div class="instruction">
+                    <p>👆 按住按钮让猫猫旋转起来！</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 右侧信息面板 -->
+        <div class="info-panel">
+            <div class="panel-section terminal">
+                <h3>💻 终端</h3>
+                <div class="terminal-content" id="terminal">
+                    <div class="terminal-line">欢迎来到 Spinning Cat!</div>
+                    <div class="terminal-line">系统已就绪...</div>
+                    <div class="terminal-line">等待输入...</div>
+                </div>
+            </div>
+
+            <div class="panel-section">
+                <h3>🏆 今日排行榜</h3>
+                <div class="leaderboard">
+                    <div class="leaderboard-item">
+                        <span class="rank">1.</span>
+                        <span class="name">猫猫大师</span>
+                        <span class="score">9999</span>
+                    </div>
+                    <div class="leaderboard-item">
+                        <span class="rank">2.</span>
+                        <span class="name">旋转专家</span>
+                        <span class="score">8888</span>
+                    </div>
+                    <div class="leaderboard-item">
+                        <span class="rank">3.</span>
+                        <span class="name">喵喵侠</span>
+                        <span class="score">7777</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel-section">
+                <h3>👥 在线玩家</h3>
+                <div class="online-users">
+                    <span class="user-count" id="userCount">Loading...</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 页脚 -->
+    <footer class="footer">
+        <div class="footer-content">
+            <p>Made with ❤️ by Claude | Spinning Cat v1.0</p>
+            <div class="footer-links">
+                <a href="#">关于</a>
+                <a href="#">隐私政策</a>
+                <a href="#">Cookie设置</a>
+            </div>
+        </div>
+        <div class="footer-animation">
+            <span class="dancing-cat">🐱</span>
+            <span class="dancing-cat">🐱</span>
+            <span class="dancing-cat">🐱</span>
+        </div>
+    </footer>
+
+    <!-- 粒子效果容器 -->
+    <div class="particles" id="particles"></div>
+
+    <script src="script.js"></script>
+</body>
+</html>
