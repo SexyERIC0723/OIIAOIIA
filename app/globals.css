@@ -1,0 +1,117 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --terminal-bg: #0a0e14;
+  --terminal-text: #00ff41;
+  --terminal-border: #1a2332;
+  --terminal-highlight: #00cc33;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background-color: var(--terminal-bg);
+  color: var(--terminal-text);
+  overflow-x: hidden;
+}
+
+/* Scrollbar Styling */
+::-webkit-scrollbar {
+  width: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--terminal-bg);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--terminal-border);
+  border-radius: 5px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--terminal-text);
+}
+
+/* Rave Mode Background Animation */
+@keyframes rave-bg {
+  0% {
+    background: linear-gradient(135deg, #ff00ff 0%, #00ffff 100%);
+  }
+  25% {
+    background: linear-gradient(135deg, #00ffff 0%, #ffff00 100%);
+  }
+  50% {
+    background: linear-gradient(135deg, #ffff00 0%, #ff00ff 100%);
+  }
+  75% {
+    background: linear-gradient(135deg, #9d00ff 0%, #00ff41 100%);
+  }
+  100% {
+    background: linear-gradient(135deg, #ff00ff 0%, #00ffff 100%);
+  }
+}
+
+.rave-background {
+  animation: rave-bg 3s ease-in-out infinite;
+}
+
+/* Glitch Effect for Rave Mode */
+@keyframes glitch {
+  0% {
+    transform: translate(0);
+  }
+  20% {
+    transform: translate(-2px, 2px);
+  }
+  40% {
+    transform: translate(-2px, -2px);
+  }
+  60% {
+    transform: translate(2px, 2px);
+  }
+  80% {
+    transform: translate(2px, -2px);
+  }
+  100% {
+    transform: translate(0);
+  }
+}
+
+.glitch {
+  animation: glitch 0.3s infinite;
+}
+
+/* Terminal Typing Effect */
+@keyframes typing {
+  from {
+    width: 0;
+  }
+  to {
+    width: 100%;
+  }
+}
+
+.typing-effect {
+  overflow: hidden;
+  white-space: nowrap;
+  animation: typing 2s steps(40, end);
+}
+
+/* Glow Pulse */
+@keyframes glow-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 5px var(--terminal-text), 0 0 10px var(--terminal-text);
+  }
+  50% {
+    box-shadow: 0 0 20px var(--terminal-text), 0 0 30px var(--terminal-text),
+      0 0 40px var(--terminal-text);
+  }
+}
+
+.glow-pulse {
+  animation: glow-pulse 2s ease-in-out infinite;
+}
