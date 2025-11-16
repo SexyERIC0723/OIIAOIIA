@@ -1,0 +1,115 @@
+// Prisma Schema for Spinning Kitty App
+// Database: PostgreSQL
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Player/User model - represents each spinner
+model Player {
+  id            String   @id @default(uuid())
+  createdAt     DateTime @default(now())
+  lastSeenAt    DateTime @updatedAt
+  countryCode   String?  @db.VarChar(2)
+  nickname      String?  @db.VarChar(50)
+
+  // Relations
+  spins         Spin[]
+  chatMessages  ChatMessage[]
+
+  @@index([countryCode])
+  @@index([lastSeenAt])
+  @@map("players")
+}
+
+// Individual spin records
+model Spin {
+  id          String   @id @default(uuid())
+  playerId    String
+  spinCount   Int      @default(0)  // Number of rotations in this session
+  speedMultiplier Float @default(1.0)
+  createdAt   DateTime @default(now())
+
+  // Relations
+  player      Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@index([playerId])
+  @@index([createdAt])
+  @@map("spins")
+}
+
+// Daily aggregated statistics
+model DailyStats {
+  id            String   @id @default(uuid())
+  date          DateTime @unique @db.Date
+  totalSpins    BigInt   @default(0)
+  uniquePlayers Int      @default(0)
+  peakOnline    Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([date])
+  @@map("daily_stats")
+}
+
+// Country-based statistics
+model CountryStats {
+  id            String   @id @default(uuid())
+  countryCode   String   @unique @db.VarChar(2)
+  countryName   String?  @db.VarChar(100)
+  totalSpins    BigInt   @default(0)
+  uniquePlayers Int      @default(0)
+  lastUpdated   DateTime @updatedAt
+
+  @@index([countryCode])
+  @@map("country_stats")
+}
+
+// Chat messages
+model ChatMessage {
+  id          String   @id @default(uuid())
+  playerId    String?
+  nickname    String   @db.VarChar(50)
+  message     String   @db.VarChar(500)
+  countryCode String?  @db.VarChar(2)
+  createdAt   DateTime @default(now())
+
+  // Relations
+  player      Player?  @relation(fields: [playerId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+  @@map("chat_messages")
+}
+
+// Global statistics (singleton table)
+model GlobalStats {
+  id              Int      @id @default(1)
+  totalSpins      BigInt   @default(0)
+  totalPlayers    Int      @default(0)
+  todaySpins      BigInt   @default(0)
+  onlinePlayers   Int      @default(0)
+  lastResetDate   DateTime @default(now()) @db.Date
+  updatedAt       DateTime @updatedAt
+
+  @@map("global_stats")
+}
+
+// Leaderboard entries
+model LeaderboardEntry {
+  id          String   @id @default(uuid())
+  playerId    String   @unique
+  nickname    String?  @db.VarChar(50)
+  totalSpins  BigInt   @default(0)
+  countryCode String?  @db.VarChar(2)
+  rank        Int?
+  updatedAt   DateTime @updatedAt
+
+  @@index([totalSpins(sort: Desc)])
+  @@index([rank])
+  @@map("leaderboard_entries")
+}
